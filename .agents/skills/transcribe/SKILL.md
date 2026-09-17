@@ -155,12 +155,12 @@ console.log('生成产物:', result.outputFiles);
 
 ## 七、内置环境诊断工具 (Agent 门禁辅助)
 
-在执行批量转写或排查故障前，可运行本技能内置的诊断脚本：
+在执行批量转写或排查故障前，可运行本技能内置的 Shell 诊断脚本：
 
 ```bash
-node ~/.gemini/config/skills/transcribe/scripts/diagnose.mjs
+~/.gemini/config/skills/transcribe/scripts/diagnose.sh
 # 或输出结构化 JSON 便于 Agent 解析
-node ~/.gemini/config/skills/transcribe/scripts/diagnose.mjs --json
+~/.gemini/config/skills/transcribe/scripts/diagnose.sh --json
 ```
 
 ---
