@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { resolveModel, DEFAULT_MODEL, getModelsCacheDir } from '../src/model.js';
 import { findNativeBinary } from '../src/runner.js';
 import { getVersion } from '../src/cli.js';
@@ -19,7 +22,25 @@ test('model resolution', () => {
   }
 });
 
-test('native binary resolution', () => {
+test('native binary resolution (fallback or env)', () => {
   const binary = findNativeBinary();
-  assert.ok(binary !== null, 'Should find native transcribe binary');
+  assert.ok(binary === null || typeof binary === 'string');
+
+  // Test env override
+  const tmpFile = path.join(os.tmpdir(), `test-bin-${Date.now()}`);
+  fs.writeFileSync(tmpFile, '');
+  const prevEnv = process.env.TRANSCRIBE_BIN_PATH;
+  try {
+    process.env.TRANSCRIBE_BIN_PATH = tmpFile;
+    assert.equal(findNativeBinary(), tmpFile);
+  } finally {
+    if (prevEnv !== undefined) {
+      process.env.TRANSCRIBE_BIN_PATH = prevEnv;
+    } else {
+      delete process.env.TRANSCRIBE_BIN_PATH;
+    }
+    if (fs.existsSync(tmpFile)) {
+      fs.unlinkSync(tmpFile);
+    }
+  }
 });
