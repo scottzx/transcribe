@@ -153,7 +153,19 @@ console.log('生成产物:', result.outputFiles);
 
 ---
 
-## 七、常见异常排查 (Troubleshooting)
+## 七、内置环境诊断工具 (Agent 门禁辅助)
+
+在执行批量转写或排查故障前，可运行本技能内置的诊断脚本：
+
+```bash
+node ~/.gemini/config/skills/transcribe/scripts/diagnose.mjs
+# 或输出结构化 JSON 便于 Agent 解析
+node ~/.gemini/config/skills/transcribe/scripts/diagnose.mjs --json
+```
+
+---
+
+## 八、常见异常排查 (Troubleshooting)
 
 1. **未检测到原生转写引擎 (`未检测到原生转写引擎二进制`)**：
    - 确认宿主机已安装原生二进制到 `~/.local/bin/transcribe-cli`，或运行 `which transcribe-cli` 确认。
