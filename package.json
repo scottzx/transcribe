@@ -1,6 +1,6 @@
 {
   "name": "@1agents/transcribe",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Ultra-fast on-device ASR engine & CLI with ModelScope auto-acceleration, Metal/GPU inference, and subtitle generator.",
   "keywords": [
     "asr",
