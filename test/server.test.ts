@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createTranscribeServer, ASR_CAPABILITIES, ASR_METHODS, ASR_SKILLS, getAsrEngineInfo } from '../src/server.js';
+import { createTranscribeServer, ASR_CAPABILITIES, ASR_METHODS, ASR_SKILLS, getAsrEngineInfo, getTranscribeRegistration } from '../src/server.js';
 
 test('getAsrEngineInfo returns structural engine metadata', () => {
   const info = getAsrEngineInfo();
@@ -14,6 +14,17 @@ test('getAsrEngineInfo returns structural engine metadata', () => {
   assert.ok('asr.info' in ASR_METHODS);
   assert.ok('transcribe' in ASR_SKILLS);
   assert.ok(ASR_SKILLS.transcribe.sop?.includes('转写') || ASR_SKILLS.transcribe.sop?.includes('SOP'));
+});
+
+test('getTranscribeRegistration declares hybrid execution and lifecycle', () => {
+  const reg = getTranscribeRegistration(7782);
+  assert.equal(reg.id, 'transcribe');
+  assert.equal(reg.execution, 'hybrid');
+  assert.equal(reg.command, 'transcribe');
+  assert.equal(reg.lifecycle.can_spawn, true);
+  assert.equal(reg.lifecycle.can_shutdown, true);
+  assert.equal(reg.lifecycle.stop_endpoint, '/shutdown');
+  assert.match(reg.lifecycle.start_command, /transcribe serve --port 7782/);
 });
 
 test('HTTP server lifecycle and endpoints', async () => {
@@ -78,7 +89,13 @@ test('HTTP server lifecycle and endpoints', async () => {
     });
     assert.equal(badJsonRes.status, 400);
 
-    // 7. Unknown route
+    // 7. POST /shutdown -> graceful stop
+    const shutdownRes = await fetch(`${baseUrl}/shutdown`, { method: 'POST' });
+    assert.equal(shutdownRes.status, 200);
+    const shutdownData = await shutdownRes.json() as any;
+    assert.equal(shutdownData.ok, true);
+
+    // 8. Unknown route
     const notFoundRes = await fetch(`${baseUrl}/non-existent`);
     assert.equal(notFoundRes.status, 404);
 

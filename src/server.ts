@@ -236,12 +236,48 @@ export function createTranscribeServer(): http.Server {
         return json(res, 200, result);
       }
 
+      // 5. POST /shutdown - 优雅关机释放显存与内存
+      if (req.method === 'POST' && pathname === '/shutdown') {
+        json(res, 200, { ok: true, message: 'transcribe service shutting down' });
+        setTimeout(() => {
+          if (process.env.NODE_ENV !== 'test') {
+            process.exit(0);
+          }
+        }, 100);
+        return;
+      }
+
       // 404 未知路由
       json(res, 404, { error: `no route: ${req.method} ${pathname}` });
     } catch (err: unknown) {
       json(res, 500, { error: err instanceof Error ? err.message : String(err) });
     }
   });
+}
+
+export function getTranscribeRegistration(port: number = DEFAULT_TRANSCRIBE_PORT) {
+  return {
+    id: 'transcribe',
+    name: '本地端侧语音转写引擎',
+    kind: 'generic' as const,
+    port,
+    reachability: 'localhost' as const,
+    health: '/health',
+    execution: 'hybrid' as const,
+    command: 'transcribe',
+    lifecycle: {
+      start_command: `transcribe serve --port ${port}`,
+      stop_endpoint: '/shutdown',
+      can_spawn: true,
+      can_shutdown: true,
+    },
+    methods: ASR_METHODS,
+    skills: SKILLS_DIR,
+    metadata: {
+      version: getVersion(),
+      hardware: process.platform === 'darwin' && process.arch === 'arm64' ? 'Metal' : 'CPU',
+    },
+  };
 }
 
 export async function serveTranscribe(options: ServerOptions = {}): Promise<{
@@ -278,18 +314,8 @@ export async function serveTranscribe(options: ServerOptions = {}): Promise<{
     options.report === false
       ? undefined
       : await reportAndHoldRegistration({
-          id: 'transcribe',
-          name: '本地端侧语音转写引擎',
-          kind: 'generic',
-          port,
+          ...getTranscribeRegistration(port),
           reachability,
-          health: '/health',
-          methods: ASR_METHODS,
-          skills: SKILLS_DIR,
-          metadata: {
-            version: getVersion(),
-            hardware: process.platform === 'darwin' && process.arch === 'arm64' ? 'Metal' : 'CPU',
-          },
         });
 
   console.log(`1transcribe serve — node ${identity.name} (${identity.node_id})`);

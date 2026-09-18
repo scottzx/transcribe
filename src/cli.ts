@@ -41,10 +41,14 @@ export function printHelp(): void {
   -p, --port <端口>         指定监听端口 (默认: 7782)
   --host <地址>             绑定主机地址 (默认: 127.0.0.1)
   --no-report               仅启动 HTTP 服务，不向本机 dreammate-node 报备
+  transcribe register       免常驻模式：向本机 node agent 报备 CLI/Hybrid 能力后立即退出
+  transcribe invoke         通用 CLI RPC 入口：从 stdin 或 --payload 读取 JSON 执行并纯净输出 JSON
 
 示例:
   transcribe interview.mp3
   transcribe podcast.m4a -o ./subtitles/ -f srt
+  transcribe register
+  transcribe invoke --payload '{"method":"asr.info"}'
   transcribe serve --port 7782
 `);
 }
@@ -58,6 +62,108 @@ export async function runCLI(argv: string[] = process.argv.slice(2)): Promise<vo
   if (argv.includes('-v') || argv.includes('--version')) {
     console.log(`@1agents/transcribe v${getVersion()}`);
     return;
+  }
+
+  // 子命令：register (免常驻单次报备)
+  if (argv[0] === 'register') {
+    let port: number | undefined;
+    for (let i = 1; i < argv.length; i++) {
+      if (argv[i] === '-p' || argv[i] === '--port') {
+        const val = parseInt(argv[++i], 10);
+        if (!isNaN(val)) port = val;
+      }
+    }
+
+    const { getTranscribeRegistration } = await import('./server.js');
+    const { reportToAgent } = await import('@1agents/dreammate-node/client');
+
+    const reg = getTranscribeRegistration(port);
+    const res = await reportToAgent(reg);
+    if (res.ok) {
+      console.log(`✅ 已成功向本机 node agent 报备能力: ${reg.id}`);
+      console.log(`   执行模式: ${reg.execution} (CLI 优先调度，按需常驻)`);
+      console.log(`   CLI 指令: ${reg.command}`);
+      console.log(`   备用端口: ${reg.port}`);
+      console.log(`   方法契约: ${Object.keys(reg.methods).join(', ')}`);
+      return;
+    } else {
+      console.error(`❌ 报备失败: ${res.reason}。请确认本机 dreammate-node (36908) 是否运行。`);
+      process.exit(1);
+    }
+  }
+
+  // 子命令：invoke (DreamMate CLI RPC 调度器，stdout 纯净输出 JSON)
+  if (argv[0] === 'invoke') {
+    // 将所有日志导向 stderr，确保 stdout 仅有最终的合法 JSON
+    console.log = (...args: unknown[]) => console.error(...args);
+
+    let rawInput = '';
+    for (let i = 1; i < argv.length; i++) {
+      if (argv[i] === '--payload' || argv[i] === '--params') {
+        rawInput = argv[++i] || '';
+      }
+    }
+
+    if (!rawInput && !process.stdin.isTTY) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      rawInput = Buffer.concat(chunks).toString('utf8');
+    }
+
+    let payload: any = {};
+    if (rawInput.trim()) {
+      try {
+        payload = JSON.parse(rawInput.trim());
+      } catch (err) {
+        process.stderr.write(`❌ 无效的 JSON 输入: ${rawInput}\n`);
+        process.stdout.write(JSON.stringify({ error: `invalid json: ${err}` }) + '\n');
+        process.exit(1);
+      }
+    }
+
+    const method = payload.method || payload.capability || 'asr.transcribe';
+    const params = payload.params || {};
+
+    const { getAsrEngineInfo } = await import('./server.js');
+
+    if (method === 'asr.info' || method === 'info') {
+      const info = getAsrEngineInfo();
+      process.stdout.write(JSON.stringify(info) + '\n');
+      return;
+    }
+
+    if (method === 'asr.transcribe' || method === 'transcribe') {
+      const audioPath =
+        params.audio_path || params.audioPath || params.file_path || params.filePath;
+      if (!audioPath || typeof audioPath !== 'string') {
+        process.stdout.write(
+          JSON.stringify({ error: '缺少必填参数: audio_path (音频绝对文件路径)' }) + '\n',
+        );
+        process.exit(1);
+      }
+
+      const options: TranscribeOptions = {
+        output: params.output_dir || params.outputDir || params.output,
+        format: params.format,
+        lang: params.lang,
+        itn: params.itn !== false,
+        model: params.model,
+      };
+
+      try {
+        const result = await runTranscription(audioPath, options);
+        process.stdout.write(JSON.stringify(result) + '\n');
+        return;
+      } catch (err: any) {
+        process.stdout.write(JSON.stringify({ error: err.message || String(err) }) + '\n');
+        process.exit(1);
+      }
+    }
+
+    process.stdout.write(JSON.stringify({ error: `未知方法: ${method}` }) + '\n');
+    process.exit(1);
   }
 
   // 子命令：serve
