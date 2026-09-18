@@ -86,7 +86,11 @@ export async function runTranscription(
     proc.stdout.on('data', (d) => {
       const text = d.toString();
       stdoutData += text;
-      process.stdout.write(text);
+      if (process.env.TRANSCRIBE_INVOKE === '1' || options.quiet) {
+        process.stderr.write(text);
+      } else {
+        process.stdout.write(text);
+      }
     });
 
     proc.stderr.on('data', (d) => {

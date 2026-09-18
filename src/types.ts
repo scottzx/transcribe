@@ -13,6 +13,7 @@ export interface TranscribeOptions {
   itn?: boolean;
   model?: string;
   threads?: number;
+  quiet?: boolean;
 }
 
 export interface TranscribeResult {

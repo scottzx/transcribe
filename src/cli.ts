@@ -94,6 +94,7 @@ export async function runCLI(argv: string[] = process.argv.slice(2)): Promise<vo
 
   // 子命令：invoke (DreamMate CLI RPC 调度器，stdout 纯净输出 JSON)
   if (argv[0] === 'invoke') {
+    process.env.TRANSCRIBE_INVOKE = '1';
     // 将所有日志导向 stderr，确保 stdout 仅有最终的合法 JSON
     console.log = (...args: unknown[]) => console.error(...args);
 
@@ -150,6 +151,7 @@ export async function runCLI(argv: string[] = process.argv.slice(2)): Promise<vo
         lang: params.lang,
         itn: params.itn !== false,
         model: params.model,
+        quiet: true,
       };
 
       try {
