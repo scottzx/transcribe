@@ -99,92 +99,30 @@ for audio in ~/Downloads/podcasts/*.{mp3,m4a}; do
 done
 ```
 
-### 5. 启动常驻服务并向 DreamMate Network 报备能力 (`transcribe serve`)
-按照 DreamMate Network v0.5.0 规范，将本机转写引擎常驻化，并自动向本机 `dreammate-node`（:36908）自声明 ASR 能力：
-```bash
-# 默认监听 7782 并向 36908 报备
-transcribe serve
-
-# 自定义端口
-transcribe serve --port 7785
-```
-常驻后，局域网与本机大模型可通过 DreamMate MCP 渐进式元工具自动感知并调度：
-- `dreammate_list_capabilities`: 发现包含 `asr.transcribe` 与 `asr.info`
-- `dreammate_inspect`: 获取 `asr.transcribe` 参数定义（`audio_path`、`format`、`lang` 等）
-- `dreammate_invoke`: Universal RPC 跨节点透明执行音频转写任务
-
 ---
 
-## 五、环境拓扑与跨平台原生引擎绑定
+## 五、DreamMate Network 分布式 RPC 调用方式
 
-`@1agents/transcribe` 是轻量 Node.js / CLI 调度层，底层调度极速原生推理引擎。
+当作为 DreamMate 微服务运行在局域网/Tailnet 节点上时，可通过统一执行器跨节点调度：
 
-### 1. 寻找原生二进制的默认策略
-CLI 会按以下顺序检索原生执行引擎 `transcribe-cli`（Windows 下为 `transcribe-cli.exe`）：
-1. 环境变量 `TRANSCRIBE_BIN_PATH` 指定的绝对路径；
-2. 用户主目录：`~/.local/bin/transcribe-cli`；
-3. 系统全局目录：`/usr/local/bin/transcribe-cli` 或 `/opt/homebrew/bin/transcribe-cli`；
-4. 本地源码工程编译产物路径（适用于开发者调试）。
-
-> [!TIP]
-> 如果在非标准路径或 Windows/Linux 上，可通过设置环境变量指定原生二进制：
-> ```bash
-> export TRANSCRIBE_BIN_PATH="/custom/path/to/transcribe-cli"
-> ```
-
-### 2. 模型缓存存储
-- 模型默认保存在：`~/.transcribe_models/SenseVoiceSmall-Q8_0.gguf`。
-- 如果需要指定模型缓存目录，可配置环境变量：
-  ```bash
-  export TRANSCRIBE_MODELS_DIR="/Volumes/ExternalSSD/models"
-  ```
-- 托管镜像信息：
-  - ModelScope：`scott887/SenseVoiceSmall-Q8_0.gguf`
-  - 文件大小：约 241 MB
-  - SHA256 校验码：`6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29`
-
----
-
-## 六、Node.js / TypeScript SDK 编程调用
-
-在其他自动化应用或 Node.js 项目中，可以直接以模块导入调用：
-
-```typescript
-import { runTranscription, ensureModel, resolveModel } from '@1agents/transcribe';
-
-// 1. 确保模型就绪（若不存在自动从 ModelScope 下载）
-const modelPath = await ensureModel();
-
-// 2. 执行转写任务
-const result = await runTranscription('/path/to/audio.mp3', {
-  output: './dist_subtitles',
-  format: 'all',
-});
-
-console.log(`转写完成！用时: ${result.durationMs}ms`);
-console.log('生成产物:', result.outputFiles);
+1. **执行离线语音转写**：
+```json
+{
+  "service_id": "transcribe",
+  "method": "asr.transcribe",
+  "params": {
+    "audio_path": "/path/to/local/audio.mp3",
+    "format": "srt",
+    "lang": "zh"
+  }
+}
 ```
 
----
-
-## 七、内置环境诊断工具 (Agent 门禁辅助)
-
-在执行批量转写或排查故障前，可运行本技能内置的 Shell 诊断脚本：
-
-```bash
-~/.gemini/config/skills/transcribe/scripts/diagnose.sh
-# 或输出结构化 JSON 便于 Agent 解析
-~/.gemini/config/skills/transcribe/scripts/diagnose.sh --json
+2. **获取引擎就绪状态**：
+```json
+{
+  "service_id": "transcribe",
+  "method": "asr.info",
+  "params": {}
+}
 ```
-
----
-
-## 八、常见异常排查 (Troubleshooting)
-
-1. **未检测到原生转写引擎 (`未检测到原生转写引擎二进制`)**：
-   - 确认宿主机已安装原生二进制到 `~/.local/bin/transcribe-cli`，或运行 `which transcribe-cli` 确认。
-   - macOS 用户可由本地 `TranscribeKit` 项目通过 `swift build -c release` 编译生成并软链至 `~/.local/bin/`。
-2. **下载模型超时或网络抖动**：
-   - 模型托管于阿里云 ModelScope 国内 CDN，如遇网络中断，直接重新执行命令，内部会自动断点探测与重新同步，下载完成后自动校验 SHA256。
-3. **音频文件权限或路径包含空格**：
-   - CLI 内部已进行全量安全路径转义与 `~` 目录展开，支持各种含空格的文件名（如 `My Podcast Episode 01.m4a`）。

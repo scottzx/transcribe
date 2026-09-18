@@ -96,6 +96,35 @@ console.log(`模型已就绪: ${modelPath}`);
 
 ---
 
+## 🌐 DreamMate Network 服务模式 (ASR 能力节点)
+
+`transcribe` 现已深度整合 **DreamMate Network v0.5.0** 规范。你可以一键将当前机器启动为一个常驻 ASR 引擎服务，并自动向本机 `dreammate-node`（:36908）进行能力报备与心跳探活：
+
+```bash
+# 启动常驻服务 (默认监听 7782 端口，并自动向 dreammate-node 报备)
+transcribe serve
+
+# 自定义端口或指定主机
+transcribe serve --port 7785 --host 0.0.0.0
+
+# 纯本地调试模式 (不向 node agent 报备)
+transcribe serve --no-report
+```
+
+### 接入收益与大模型调度
+1. **两阶段渐进式发现（Progressive Discovery）**：
+   通过自声明 `asr.transcribe` 与 `asr.info` 契约及 JSON Schema 参数定义，大模型只需调用 `dreammate_list_capabilities` 与 `dreammate_inspect` 即可按需加载参数，彻底杜绝全局提示词上下文膨胀。
+2. **通用分布式执行器（Universal RPC Dispatcher）**：
+   大模型在任意客户端发起 `dreammate_invoke({ service_id: "transcribe", capability: "asr.transcribe", params: { audio_path: "/path/to/audio.mp3" } })`，即可跨节点透明调度本机的端侧转写引擎！
+3. **HTTP 契约端点**：
+   - `GET /health`：存活探测心跳，供 node-agent 定期检查。
+   - `GET /manifest`：返回符合规范的节点能力清单与方法描述。
+   - `POST /invoke`：Universal RPC 分发入口，接收 `{ capability, params }`。
+   - `POST /transcribe`：RESTful 风格直接转写调用。
+
+
+---
+
 ## 🧠 推荐模型矩阵 / Supported Models
 
 工具默认采用兼顾极速与高精度的 **SenseVoice Small**：

@@ -20,13 +20,14 @@ export function getVersion(): string {
 export function printHelp(): void {
   console.log(`
 @1agents/transcribe v${getVersion()}
-端侧极速语音转写与字幕生成引擎 (Metal/Vulkan/CPU 加速 + ModelScope 自动镜像)
+端侧极速语音转写与字幕生成引擎 (Metal/Vulkan/CPU 加速 + DreamMate 能力网格)
 
 用法:
   transcribe <音频或视频文件路径> [选项]
+  transcribe serve [选项]
   npx @1agents/transcribe <音频文件路径> [选项]
 
-选项:
+转写选项:
   -o, --output <路径>       输出目录或文件名 (默认保存在源文件同级目录)
   -f, --format <格式>       输出格式：srt, vtt, txt, all (默认: all)
   -l, --lang <语种>         识别语种提示：zh (默认), en, yue, ja, ko
@@ -35,10 +36,16 @@ export function printHelp(): void {
   -v, --version             显示当前版本号
   -h, --help                显示帮助说明
 
+服务模式 (DreamMate Network ASR 节点):
+  transcribe serve          启动本地 HTTP ASR 服务并向 dreammate-node 报备能力
+  -p, --port <端口>         指定监听端口 (默认: 7782)
+  --host <地址>             绑定主机地址 (默认: 127.0.0.1)
+  --no-report               仅启动 HTTP 服务，不向本机 dreammate-node 报备
+
 示例:
   transcribe interview.mp3
   transcribe podcast.m4a -o ./subtitles/ -f srt
-  npx @1agents/transcribe meeting.wav -l zh
+  transcribe serve --port 7782
 `);
 }
 
@@ -50,6 +57,45 @@ export async function runCLI(argv: string[] = process.argv.slice(2)): Promise<vo
 
   if (argv.includes('-v') || argv.includes('--version')) {
     console.log(`@1agents/transcribe v${getVersion()}`);
+    return;
+  }
+
+  // 子命令：serve
+  if (argv[0] === 'serve') {
+    let port: number | undefined;
+    let host: string | undefined;
+    let report = true;
+
+    for (let i = 1; i < argv.length; i++) {
+      const arg = argv[i];
+      if (arg === '-p' || arg === '--port') {
+        const val = parseInt(argv[++i], 10);
+        if (!isNaN(val)) port = val;
+      } else if (arg === '--host') {
+        host = argv[++i];
+      } else if (arg === '--no-report') {
+        report = false;
+      } else if (arg === '-h' || arg === '--help') {
+        console.log(`
+用法:
+  transcribe serve [选项]
+
+选项:
+  -p, --port <端口>    服务端口 (默认: 7782)
+  --host <地址>        绑定主机地址 (默认: 127.0.0.1)
+  --no-report          不向本机 dreammate-node 报备
+`);
+        return;
+      }
+    }
+
+    const { serveTranscribe } = await import('./server.js');
+    try {
+      await serveTranscribe({ port, host, report });
+    } catch (err: any) {
+      console.error(`❌ 服务启动失败: ${err.message || err}`);
+      process.exit(1);
+    }
     return;
   }
 
