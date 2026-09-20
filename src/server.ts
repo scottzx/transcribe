@@ -20,7 +20,15 @@ import {
   type SkillDescriptorWithSource as SkillDescriptor,
 } from '@1agents/dreammate-node/client';
 import { runTranscription, findNativeBinary } from './runner.js';
-import { resolveModel, DEFAULT_MODEL, getModelsCacheDir } from './model.js';
+import { findFunasrPython } from './funasr.js';
+import {
+  resolveModel,
+  DEFAULT_MODEL,
+  FUNASR_PARAFORMER,
+  getModelsCacheDir,
+  listModelStatus,
+  funasrModelsReady,
+} from './model.js';
 import { getVersion } from './cli.js';
 import type { TranscribeOptions, TranscribeResult } from './types.js';
 
@@ -55,8 +63,13 @@ export const ASR_METHODS = {
         },
         format: {
           type: 'string',
-          enum: ['srt', 'vtt', 'txt', 'all'],
-          description: '可选，输出文件格式：srt, vtt, txt 或 all (默认: all)',
+          enum: ['srt', 'vtt', 'txt', 'chars', 'jsonl', 'all'],
+          description: '可选，输出文件格式：srt, vtt, txt, chars (字级逐字稿) 或 all (默认: all)',
+        },
+        engine: {
+          type: 'string',
+          enum: ['gguf', 'funasr'],
+          description: '可选，推理引擎：gguf (极速 SenseVoice) 或 funasr (高精度逐字稿)',
         },
         lang: {
           type: 'string',
@@ -68,7 +81,19 @@ export const ASR_METHODS = {
         },
         model: {
           type: 'string',
-          description: '可选，显式指定自定义 GGUF 模型路径',
+          description: '可选，模型 ID（sensevoice-small-q8 / funasr-paraformer）或本地路径',
+        },
+        chars_out: {
+          type: 'string',
+          description: '可选，FunASR 字级逐字稿 JSONL 输出路径',
+        },
+        sentences_out: {
+          type: 'string',
+          description: '可选，FunASR 句级 JSONL 输出路径',
+        },
+        diarize: {
+          type: 'boolean',
+          description: '可选，FunASR 说话人分离，默认 true',
         },
       },
       required: ['audio_path'],
@@ -114,16 +139,26 @@ const readBody = async (req: http.IncomingMessage): Promise<string> => {
 export function getAsrEngineInfo() {
   const resolvedModel = resolveModel();
   const binary = findNativeBinary();
+  const funasrPython = findFunasrPython();
+  const funasrReady = funasrModelsReady();
   return {
     service: 'transcribe',
     version: getVersion(),
-    status: binary ? 'ready' : 'missing_binary',
+    status: binary || funasrReady ? 'ready' : 'missing_binary',
     nativeBinary: binary,
     model: {
       name: DEFAULT_MODEL.name,
       fileName: DEFAULT_MODEL.fileName,
       resolvedPath: resolvedModel,
       isCached: Boolean(resolvedModel),
+    },
+    models: listModelStatus(),
+    funasr: {
+      id: FUNASR_PARAFORMER.id,
+      name: FUNASR_PARAFORMER.name,
+      modelScopeURL: FUNASR_PARAFORMER.modelScopeURL,
+      python: funasrPython,
+      modelsReady: funasrReady,
     },
     modelsCacheDir: getModelsCacheDir(),
     platform: process.platform,
@@ -198,6 +233,13 @@ export function createTranscribeServer(): http.Server {
             lang: params.lang,
             itn: params.itn !== false,
             model: params.model,
+            engine: params.engine,
+            charsOut: params.chars_out || params.charsOut,
+            sentencesOut: params.sentences_out || params.sentencesOut,
+            fillersOut: params.fillers_out || params.fillersOut,
+            assetId: params.asset_id || params.assetId,
+            diarize: params.diarize,
+            python: params.python,
           };
 
           const result = await runTranscription(audioPath, options);
@@ -230,6 +272,13 @@ export function createTranscribeServer(): http.Server {
           lang: body.lang,
           itn: body.itn !== false,
           model: body.model,
+          engine: body.engine,
+          charsOut: body.chars_out || body.charsOut,
+          sentencesOut: body.sentences_out || body.sentencesOut,
+          fillersOut: body.fillers_out || body.fillersOut,
+          assetId: body.asset_id || body.assetId,
+          diarize: body.diarize,
+          python: body.python,
         };
 
         const result = await runTranscription(audioPath, options);

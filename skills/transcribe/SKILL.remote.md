@@ -26,7 +26,8 @@ description: 基于 @1agents/transcribe 的局域网/跨节点端侧语音识别
     "audio_path": "/absolute/path/to/audio.mp3",
     "format": "all",
     "lang": "zh",
-    "itn": true
+    "itn": true,
+    "engine": "funasr"
   }
 }
 ```

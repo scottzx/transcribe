@@ -7,7 +7,7 @@ description: >-
   2. 用户询问或需要安装、配置、升级 @1agents/transcribe 或调用 transcribe / 1transcribe 命令行工具；
   3. 用户需要将播客单集、会议录音、视频配音等进行高效批量转写；
   4. 用户需要配置 ModelScope 模型源自动加速拉取、或配置跨平台原生推理后端（Apple Silicon Metal / Windows / Linux）。
-  关键词：transcribe, 1transcribe, @1agents/transcribe, 转写, 语音识别, ASR, 字幕, srt, vtt, 逐字稿, sensevoice, 音频转文字, 播客转写, 离线识别
+  关键词：transcribe, 1transcribe, @1agents/transcribe, 转写, 语音识别, ASR, 字幕, srt, vtt, 逐字稿, sensevoice, funasr, paraformer, 音频转文字, 播客转写, 离线识别
 ---
 
 # @1agents/transcribe 端侧极速转写与字幕生成技能
@@ -18,8 +18,8 @@ description: >-
 
 ## 一、核心特性与架构
 
-- **极速端侧推理**：基于优化量化的 SenseVoice-Small GGUF 模型，Apple Silicon (Metal) 下实测 **28.6x 实时吞吐**（20 秒音频仅需 0.7 秒完成）。
-- **国内极速分发**：默认集成 **ModelScope（魔搭社区）** 国内直链，首次执行按需秒级下载并自动比对 SHA256 指纹，国内免翻墙、不卡顿。
+- **双引擎**：默认 SenseVoice-Small GGUF 极速转写；`--engine funasr` 使用 Seaco Paraformer，识别效果更好，输出字级逐字稿（`*.chars.jsonl`）。
+- **国内极速分发**：GGUF 走 [`scott887/SenseVoiceSmall-Q8_0.gguf`](https://modelscope.cn/models/scott887/SenseVoiceSmall-Q8_0.gguf)；FunASR 四件套走 [`scott887/speech`](https://modelscope.cn/models/scott887/speech)，软链到仓库根目录 `models/`。
 - **纯粹隐私安全**：音频不经过任何云端 API，完全在宿主机本地内存与芯片完成计算。
 - **双重 CLI 命名**：支持 `transcribe` 和 `1transcribe` 两个全局指令，与 1agents 工具生态无缝对齐。
 
@@ -65,8 +65,10 @@ transcribe <input-audio-file> [options]
 | :--- | :--- | :--- | :--- |
 | `<input>` | - | *(必需)* | 输入音频文件路径，支持 `~` 展开与各种主流格式（mp3, m4a, wav, aac, flac 等） |
 | `--output <dir>` | `-o` | 音频同级目录 | 输出字幕与文本文件的保存目录（自动递归创建） |
-| `--format <fmt>` | `-f` | `all` | 输出格式：可选 `srt`（字幕）、`vtt`（网络视频字幕）、`txt`（纯逐字稿）、`all`（三者全输出） |
-| `--model <path>` | `-m` | 默认模型 | 自定义 GGUF 模型文件路径（未指定时自动从 ModelScope 拉取） |
+| `--format <fmt>` | `-f` | `all` | 输出格式：`srt`、`vtt`、`txt`、`chars`（FunASR 字级 JSONL）、`all` |
+| `--engine <id>` | `-e` | `gguf` | `gguf` 极速；`funasr` 高精度逐字稿 |
+| `--model <id\|path>` | `-m` | 按引擎 | `sensevoice-small-q8`、`funasr-paraformer` 或本地路径 |
+| `--chars-out <path>` | | | FunASR 字级逐字稿 JSONL（隐式启用 funasr 引擎） |
 | `--help` | `-h` | - | 显示帮助信息 |
 | `--version` | `-v` | - | 输出当前 CLI 版本 |
 
@@ -84,9 +86,11 @@ transcribe ~/Downloads/interview.mp3
 transcribe /path/to/podcast.m4a -o ~/Documents/Subtitles/ -f srt
 ```
 
-### 3. 提取纯文本逐字稿
+### 3. 提取纯文本 / FunASR 字级逐字稿
 ```bash
 transcribe /path/to/meeting_record.wav -o ./transcripts -f txt
+transcribe /path/to/meeting_record.wav --engine funasr -f chars
+# 首次：transcribe setup-funasr
 ```
 
 ### 4. 批量处理某个文件夹下的所有音频（Agent 辅助循环）

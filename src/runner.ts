@@ -3,7 +3,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
 import type { TranscribeOptions, TranscribeResult } from './types.js';
-import { ensureModel } from './model.js';
+import { ensureModel, getModelById, resolveEngine, resolveSelectedModel } from './model.js';
+import { runFunasrTranscription } from './funasr.js';
 
 export function findNativeBinary(): string | null {
   const isWindows = process.platform === 'win32';
@@ -40,8 +41,13 @@ export async function runTranscription(
     throw new Error(`输入音频文件不存在: ${audioPath}`);
   }
 
-  // 1. 确保模型就绪
-  const modelPath = await ensureModel(options.model);
+  if (resolveEngine(options) === 'funasr') {
+    return runFunasrTranscription(fullAudioPath, options);
+  }
+
+  const selected = resolveSelectedModel(options);
+  const specifiedPath = options.model && !getModelById(options.model) ? options.model : undefined;
+  const modelPath = await ensureModel(specifiedPath, selected);
 
   // 2. 定位原生二进制
   const binaryPath = findNativeBinary();
@@ -58,7 +64,7 @@ export async function runTranscription(
 
   fs.mkdirSync(outDir, { recursive: true });
 
-  const format = options.format || 'all';
+  const format = options.format === 'chars' || options.format === 'jsonl' ? 'all' : (options.format || 'all');
   const args = [
     fullAudioPath,
     '-o', outDir,
@@ -133,6 +139,8 @@ export async function runTranscription(
         elapsedSec,
         speedFactor,
         itemCount,
+        engine: 'gguf',
+        modelId: selected.id,
         files
       });
     });

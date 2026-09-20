@@ -9,6 +9,8 @@ test('getAsrEngineInfo returns structural engine metadata', () => {
   assert.equal(info.service, 'transcribe');
   assert.ok(info.version);
   assert.ok(info.model.name);
+  assert.ok(Array.isArray(info.models));
+  assert.ok(info.funasr);
   assert.ok(Array.isArray(ASR_CAPABILITIES));
   assert.ok('asr.transcribe' in ASR_METHODS);
   assert.ok('asr.info' in ASR_METHODS);

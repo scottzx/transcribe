@@ -1,5 +1,25 @@
 export { runTranscription as transcribe } from './runner.js';
-export { ensureModel, resolveModel, DEFAULT_MODEL, getModelsCacheDir } from './model.js';
+export {
+  ensureModel,
+  resolveModel,
+  DEFAULT_MODEL,
+  FUNASR_PARAFORMER,
+  FUNASR_MODELSCOPE_REPO,
+  MODELS,
+  getModelsCacheDir,
+  getPackageRoot,
+  getModelById,
+  resolveEngine,
+  listModelStatus,
+  ensureFunasrModels,
+} from './model.js';
+export {
+  runFunasrTranscription,
+  findFunasrPython,
+  sentencesToSrt,
+  sentencesToVtt,
+  sentencesToTxt,
+} from './funasr.js';
 export {
   serveTranscribe,
   createTranscribeServer,

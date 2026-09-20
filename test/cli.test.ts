@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { printHelp, printModels } from '../src/cli.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const binPath = path.resolve(__dirname, '../bin/transcribe.js');
@@ -41,6 +42,37 @@ test('CLI invoke via stdin pipe returns pure JSON', async () => {
 
   const parsed = JSON.parse(stdout.trim());
   assert.equal(parsed.service, 'transcribe');
+});
+
+test('CLI help lists FunASR engine and model subcommand', () => {
+  const logs: string[] = [];
+  const orig = console.log;
+  console.log = (...args: unknown[]) => { logs.push(args.map(String).join(' ')); };
+  try {
+    printHelp();
+  } finally {
+    console.log = orig;
+  }
+  const stdout = logs.join('\n');
+  assert.match(stdout, /funasr/);
+  assert.match(stdout, /funasr-paraformer/);
+  assert.match(stdout, /chars-out/);
+  assert.match(stdout, /setup-funasr/);
+});
+
+test('CLI models lists catalog ids', () => {
+  const logs: string[] = [];
+  const orig = console.log;
+  console.log = (...args: unknown[]) => { logs.push(args.map(String).join(' ')); };
+  try {
+    printModels();
+  } finally {
+    console.log = orig;
+  }
+  const stdout = logs.join('\n');
+  assert.match(stdout, /sensevoice-small-q8/);
+  assert.match(stdout, /funasr-paraformer/);
+  assert.match(stdout, /models/);
 });
 
 test('CLI invoke with missing audio_path exits with 1 and returns JSON error', async () => {

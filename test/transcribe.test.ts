@@ -15,9 +15,9 @@ test('version inspection', () => {
 test('model resolution', () => {
   const cacheDir = getModelsCacheDir();
   assert.ok(cacheDir.length > 0);
+  assert.ok(cacheDir.endsWith('models'));
   const resolved = resolveModel();
-  // If model is present in ~/.transcribe_models, should resolve
-  if (resolved) {
+  if (resolved && DEFAULT_MODEL.fileName) {
     assert.ok(resolved.endsWith(DEFAULT_MODEL.fileName));
   }
 });
