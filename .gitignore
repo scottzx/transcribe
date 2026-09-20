@@ -6,3 +6,5 @@ dist/
 .venv/
 models/*
 !models/.gitkeep
+.1agents/
+.claude/

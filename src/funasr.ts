@@ -70,10 +70,27 @@ export function findFunasrPython(specified?: string): string | null {
     ? path.join(getPackageRoot(), '.venv', 'Scripts', 'python.exe')
     : path.join(getPackageRoot(), '.venv', 'bin', 'python');
 
+  const sharedVenv = isWindows
+    ? path.join(os.homedir(), '.1agents', 'skill-manager', 'shared', 'funasr-local', '.venv', 'Scripts', 'python.exe')
+    : path.join(os.homedir(), '.1agents', 'skill-manager', 'shared', 'funasr-local', '.venv', 'bin', 'python');
+
+  const userVenv = isWindows
+    ? path.join(os.homedir(), '.1agents', 'venvs', 'funasr', 'Scripts', 'python.exe')
+    : path.join(os.homedir(), '.1agents', 'venvs', 'funasr', 'bin', 'python');
+
+  const cwdVenv1 = path.join(process.cwd(), '.agents', 'skills', 'funasr-local', '.venv', isWindows ? 'Scripts/python.exe' : 'bin/python');
+  const cwdVenv2 = path.join(process.cwd(), '.claude', 'skills', 'funasr-local', '.venv', isWindows ? 'Scripts/python.exe' : 'bin/python');
+  const cwdVenv3 = path.join(process.cwd(), '.venv', isWindows ? 'Scripts/python.exe' : 'bin/python');
+
   const candidates = [
     specified,
     process.env.FUNASR_PYTHON,
     venvPython,
+    sharedVenv,
+    userVenv,
+    cwdVenv1,
+    cwdVenv2,
+    cwdVenv3,
   ].filter((p): p is string => Boolean(p));
 
   for (const p of candidates) {

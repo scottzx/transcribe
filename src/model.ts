@@ -79,13 +79,14 @@ export function getModelsCacheDir(): string {
   if (process.env.TRANSCRIBE_MODELS_DIR) {
     return path.resolve(process.env.TRANSCRIBE_MODELS_DIR.replace(/^~/, os.homedir()));
   }
-  return path.join(getPackageRoot(), 'models');
+  return path.join(os.homedir(), '.1agents', 'models');
 }
 
 function legacyGgufPaths(fileName: string): string[] {
   return [
-    path.join(os.homedir(), '.transcribe_models', fileName),
     path.join(os.homedir(), '.1agents', 'models', fileName),
+    path.join(getPackageRoot(), 'models', fileName),
+    path.join(os.homedir(), '.transcribe_models', fileName),
     path.join(os.homedir(), 'Library', 'Application Support', 'TranscribeKit', 'models', fileName),
     path.join(os.homedir(), 'Library', 'Application Support', 'SmartSubtitlePlayer', 'models', fileName),
   ];
@@ -105,6 +106,7 @@ export function migrateLegacyGguf(fileName: string): string | null {
 
   for (const src of legacyGgufPaths(fileName)) {
     if (!fs.existsSync(src) || !fs.statSync(src).isFile()) continue;
+    if (path.resolve(src) === path.resolve(dest)) return dest;
     fs.mkdirSync(destDir, { recursive: true });
     try {
       fs.renameSync(src, dest);
@@ -289,7 +291,14 @@ export function getFunasrModelsDir(specified?: string): string {
 
 export function funasrModelsReady(modelsDir?: string): boolean {
   const root = modelsDir || getFunasrModelsDir();
-  return FUNASR_COMPONENTS.every((c) => fs.existsSync(path.join(root, c.dirName)));
+  const ready = FUNASR_COMPONENTS.every((c) => fs.existsSync(path.join(root, c.dirName)));
+  if (ready) return true;
+  if (modelsDir) return false;
+  try {
+    return vendorFunasrModels(root);
+  } catch {
+    return false;
+  }
 }
 
 function findFunasrPythonBin(): string | null {
@@ -297,7 +306,14 @@ function findFunasrPythonBin(): string | null {
   const venvPython = isWindows
     ? path.join(getPackageRoot(), '.venv', 'Scripts', 'python.exe')
     : path.join(getPackageRoot(), '.venv', 'bin', 'python');
-  for (const p of [process.env.FUNASR_PYTHON, venvPython]) {
+  const sharedVenv = isWindows
+    ? path.join(os.homedir(), '.1agents', 'skill-manager', 'shared', 'funasr-local', '.venv', 'Scripts', 'python.exe')
+    : path.join(os.homedir(), '.1agents', 'skill-manager', 'shared', 'funasr-local', '.venv', 'bin', 'python');
+  const userVenv = isWindows
+    ? path.join(os.homedir(), '.1agents', 'venvs', 'funasr', 'Scripts', 'python.exe')
+    : path.join(os.homedir(), '.1agents', 'venvs', 'funasr', 'bin', 'python');
+
+  for (const p of [process.env.FUNASR_PYTHON, venvPython, sharedVenv, userVenv]) {
     if (p && fs.existsSync(p)) return p;
   }
   return null;

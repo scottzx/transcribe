@@ -11,9 +11,19 @@ import {
 } from '../src/model.js';
 import { formatSrtTimestamp, sentencesToSrt, sentencesToTxt, sentencesToVtt } from '../src/funasr.js';
 
-test('package models dir is transcribe/models', () => {
-  const cacheDir = getModelsCacheDir();
-  assert.equal(cacheDir, path.join(getPackageRoot(), 'models'));
+test('default models cache dir ends with models and respects env', () => {
+  const prev = process.env.TRANSCRIBE_MODELS_DIR;
+  try {
+    delete process.env.TRANSCRIBE_MODELS_DIR;
+    const cacheDir = getModelsCacheDir();
+    assert.ok(cacheDir.endsWith('models'));
+
+    process.env.TRANSCRIBE_MODELS_DIR = '/tmp/custom-models';
+    assert.equal(getModelsCacheDir(), '/tmp/custom-models');
+  } finally {
+    if (prev !== undefined) process.env.TRANSCRIBE_MODELS_DIR = prev;
+    else delete process.env.TRANSCRIBE_MODELS_DIR;
+  }
 });
 
 test('model catalog includes gguf and funasr', () => {

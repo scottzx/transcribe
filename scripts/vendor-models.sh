@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PACKAGE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MODELS_DIR="${TRANSCRIBE_MODELS_DIR:-${PACKAGE_ROOT}/models}"
+MODELS_DIR="${TRANSCRIBE_MODELS_DIR:-${HOME}/.1agents/models}"
 CACHE_ROOT="${MODELSCOPE_CACHE:-${HOME}/.cache/modelscope}"
 
 # logical|bundle-subdir|official-cache-name
