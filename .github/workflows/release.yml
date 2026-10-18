@@ -31,8 +31,8 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test
       - run: npm run build
+      - run: npm test
 
       - name: Bump version and tag
         id: bump

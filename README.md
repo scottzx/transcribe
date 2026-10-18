@@ -183,3 +183,13 @@ npm test
 ## 📄 开源协议 / License
 
 本项目基于 [MIT 许可证](LICENSE) 开源。
+
+
+### Reproducible package validation
+
+Use a clean checkout or isolated staging directory: `npm ci --ignore-scripts`,
+`npm run typecheck`, `npm run build`, then `npm test`. CLI tests read built output;
+source-only typechecking is not enough. The lockfile must match the manifest before release.
+Do not run `npm ci` in a live service directory: it replaces that directory's node_modules.
+The 0.4.1 manifest requires DreamMate Node ^0.7.0 and Network ^0.5.0; the corrected lockfile
+resolves 0.7.2 / 0.5.0. This is not an upgrade of an already running service.
