@@ -193,3 +193,8 @@ source-only typechecking is not enough. The lockfile must match the manifest bef
 Do not run `npm ci` in a live service directory: it replaces that directory's node_modules.
 The 0.4.1 manifest requires DreamMate Node ^0.7.0 and Network ^0.5.0; the corrected lockfile
 resolves 0.7.2 / 0.5.0. This is not an upgrade of an already running service.
+
+
+### 0.5.0 dependency transition
+
+Node.js >=22.5 is required. DreamMate runtime/client dependency moves to ^0.15.0 with Network ^0.5.0. Recreate the owning install from package-lock.json; do not use a stale 0.6/0.4 installed tree. ASR model caches and audio files are retained.
